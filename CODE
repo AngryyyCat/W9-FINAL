@@ -1,0 +1,311 @@
+int original_image_x = 10;
+int original_image_y = 30;
+boolean loaded = false;
+boolean render = false;
+
+float k = 0;
+
+void setup() {
+  size(1250, 750);
+  background(10);
+  UI();
+}
+
+void draw() {
+  fill(255, 80);
+  noStroke();
+  rect(980, 50, 250, 650);
+ 
+  if (originalImage == null) {
+    return;
+  } else
+  {
+    float resizedX = 0.8* (width-250);
+    float resizedY = 0.8* (height-70);
+    modifiedImage = originalImage.copy();
+    updateLighting();
+    updateBlur();
+    updateAutoCorrection();
+    updatePixelation();
+    updateSaturation();
+    if(render) {
+        colorPicker();
+    }      
+
+    if (originalImage.width >= originalImage.height) {
+      image(modifiedImage, 10, 50, resizedX, (resizedX/originalImage.width)*originalImage.height);
+      k = resizedX/originalImage.width;
+      
+    } else {
+      image(modifiedImage, 10, 50, (resizedY/originalImage.height)*originalImage.width, resizedY);
+      k = resizedY/originalImage.height;
+    }
+  }
+}
+
+import milchreis.imageprocessing.*;
+ArrayList<Integer> colors = new ArrayList<Integer>();
+PImage originalImage;
+PImage modifiedImage;
+
+float LIGHTING = 0.0f;
+int BLUR = 0;
+boolean AUTOCORRECTION = false;
+int PIXELATION = 0;
+float SATURATION = 1.0f;
+
+int maxColors=3;
+
+void updateLighting() {
+  if (LIGHTING != 0.0f) {
+    modifiedImage = Lights.apply(modifiedImage, LIGHTING);
+  }
+}
+
+void updateBlur() {
+  if (BLUR!=0) {
+    modifiedImage.filter(PConstants.BLUR, int(BLUR));
+  }
+}
+
+void updateAutoCorrection() {
+  if (AUTOCORRECTION) {
+    modifiedImage = AutoBalance.apply(modifiedImage);
+  }
+}
+
+void updatePixelation() {
+  if (PIXELATION!=0) {
+    modifiedImage = Pixelation.apply(modifiedImage, PIXELATION);
+  }
+}
+
+void updateSaturation() {
+  if (SATURATION != 0.0f) {
+    modifiedImage = Saturation.apply(modifiedImage, SATURATION);
+  }
+}
+
+import java.util.*;
+import controlP5.*;
+ControlP5 cp5;
+ControlP5 slider;
+int myColorBackground = color(0, 0, 0);
+
+void UI() {
+  cp5 = new ControlP5(this);
+
+  cp5.addButtonBar("bar")
+    .setPosition(0, 0)
+    .setSize(width, 20)
+    .addItems(split("Load Save Reset Close", " "))
+    ;
+  int left = 0;
+  cp5.addSlider("LIGHTING")
+    .setPosition(left, height-30)
+    .setWidth(150)
+    .setRange(-0.3f, 0.3f) // values can range from big to small as well
+    .setValue(0)
+    .setSliderMode(Slider.FLEXIBLE)
+    ;
+  cp5.getController("LIGHTING").getCaptionLabel().align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE).setPaddingX(0);
+  left = left + 150 + 5;
+  cp5.addSlider("BLUR")
+    .setPosition(left, height-30)
+    .setWidth(150)
+    .setRange(0, 10) // values can range from big to small as well
+    .setValue(0)
+    ;
+  cp5.getController("BLUR").getCaptionLabel().align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE).setPaddingX(0);
+
+  left = left + 150 + 5;
+  cp5.addSlider("PIXELATION")
+    .setPosition(left, height-30)
+    .setWidth(150)
+    .setRange(0, 10) // values can range from big to small as well
+    .setValue(0)
+    ;
+  cp5.getController("PIXELATION").getCaptionLabel().align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE).setPaddingX(0);
+
+  left = left + 150 + 5;
+  cp5.addSlider("SATURATION")
+    .setPosition(left, height-30)
+    .setWidth(150)
+    .setRange(0.0, 2.0f) // values can range from big to small as well
+    .setValue(1.0f)
+    ;
+  cp5.getController("SATURATION").getCaptionLabel().align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE).setPaddingX(0);
+
+
+  // create a toggle and change the default look to a (on/off) switch look
+  cp5.addToggle("AUTOCORRECTION")
+    .setPosition(0, height-70)
+    .setHeight(10)
+    .setWidth(100)
+    .setValue(false)
+    .setMode(ControlP5.SWITCH)
+    ;
+  cp5.getController("AUTOCORRECTION").getCaptionLabel().align(ControlP5.CENTER, ControlP5.BOTTOM_OUTSIDE).setPaddingX(0);
+
+  cp5.addSlider("maxColors")
+    .setPosition(980, height-30)
+    .setSize(100, 10)
+    .setRange(3, 8)
+    .setValue(3)
+    ;
+}
+
+void bar(int n) {
+  switch(n) {
+  case 0:
+    selectInput("Load image from file", "fileSelected");
+    break;
+  case 1:
+    selectOutput("Save image to file", "savefileSelected");
+    break;
+  case 2:
+    LIGHTING = 0.0f;
+    BLUR = 0;
+    AUTOCORRECTION = false;
+    PIXELATION = 0;
+    SATURATION = 1.0;
+    redraw();
+    break;
+  case 3:
+    exit();
+    break;
+  default:
+    break;
+  }
+}
+
+void fileSelected(File selection) {
+  if (selection == null) {
+    println("No file is selected");
+  } else {
+    String fileName = selection.getName();
+    int dotIndex = fileName.lastIndexOf('.');
+    String extension = (dotIndex > 0) ? fileName.substring(dotIndex + 1) : "";
+    Set<String> allowedExtensions = new HashSet<String>(Arrays.asList("gif", "jpg", "tga", "png", "jpeg"));
+    if (extension == null || extension.isEmpty() || !allowedExtensions.contains(extension.toLowerCase())) {
+      println("User selected " + selection);
+      println("Selected file is not a .gif, .jpg, .tga or .png");
+    } else {
+      load_image_from_selected_file(selection.getAbsolutePath());
+    }
+  }
+}
+
+void savefileSelected(File selection) {
+  if (selection == null) {
+    println("Window was closed or the user hit cancel.");
+  } else {
+    println("User selected " + selection.getAbsolutePath());
+    save_image_to_selected_file(selection.getAbsolutePath());
+  }
+}
+
+void load_image_from_selected_file(String filenName) {
+  originalImage = loadImage(filenName);
+  colors.clear();
+  println("Loaded "+ filenName);
+  render = false;
+  loaded = true;
+  Selected1 = false;
+  Selected2 = false;
+  
+}
+
+void save_image_to_selected_file(String fileName) {
+  modifiedImage.save(fileName);
+  println("Saved "+ fileName);
+}
+
+int a = -1;
+int a1 =-1;
+int b = -1;
+int b1 =-1;
+boolean Selected1 = false;
+boolean Selected2 = false;
+
+void mouseClicked() {
+  if (loaded == true) {
+    fill(255);
+    textSize(32);
+    println((0.8* height/originalImage.height)*originalImage.width);
+    text("select corner1", width/2, height/2-20);
+
+    if (Selected1 == false &&
+      mouseX <= ((0.8* height/originalImage.height)*originalImage.width + 10) && mouseX >= 10
+      && mouseY <= 0.8* height + 50 && mouseY >= 50) {
+      colors.clear();
+      a = mouseX;
+      b = mouseY;
+      Selected1 = true;
+      println(a, b);
+      text("select corner2", width/2, height/2+20);
+    } else if (Selected1 == true &&Selected2 == false
+      && mouseX <= ((0.8* height/originalImage.height)*originalImage.width + 10) && mouseX >= 10
+      && mouseY <= 0.8* height + 50 && mouseY >= 50) {
+
+      a1 = mouseX;
+      b1 = mouseY;
+      Selected2 = true;
+      println("a1=", a1, "b1=", b1);
+      render = true;
+    }
+    int minWidth = 50;
+    int minHeight = 50;
+
+    int thewidth = abs(a1 - a);
+    int theheight = abs(b1 - b);
+    if (thewidth <= minWidth || theheight <= minHeight) {
+      a = b = a1 = b1 = -1;
+      Selected1 = Selected2 = false;
+    }
+  }
+}
+
+
+
+void colorPicker() {
+  if (colors.size() == maxColors) {
+    int dia = 120;
+    int loc =0;
+    int y = 100;
+    for (int c1 : colors) {
+      fill(c1);
+      noStroke();
+      ellipse(width-220, y+loc, dia/2, dia/2);
+      
+      int r = (int)red(c1);
+      int g = (int)green(c1);
+      int b = (int)blue(c1);
+
+      fill(0);
+      textSize(12);
+      text("R: " + r + " G: " + g + " B: " + b, width - 150, y + loc);
+      loc += dia/2;
+    }
+    return;
+  }
+  for (int p = 0; p < 10000; p++) {
+    int randomX = (int) random(a, a1);
+    int randomY = (int) random(b, b1);
+    color pixelColor = originalImage.get((int)(randomX/k), (int)(randomY/k));
+    if (!colors.contains(pixelColor)) {
+      colors.add(pixelColor);
+    }
+    if (colors.size() == maxColors) {
+      break;
+    }
+  }
+ 
+}
+
+void inImage() {
+  if ( mouseX <= ((0.8* height/originalImage.height)*originalImage.width + 10) && mouseX >= 10
+    && mouseY <= (0.8* height + 50) && mouseY >= 50 ) {
+    mouseClicked();
+  }
+}
